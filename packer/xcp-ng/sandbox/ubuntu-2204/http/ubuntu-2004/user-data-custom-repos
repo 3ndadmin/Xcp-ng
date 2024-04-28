@@ -1,0 +1,70 @@
+#cloud-config
+autoinstall:
+  version: 1
+  early-commands:
+ # workaround to stop ssh for packer as it thinks it timed out
+ # mayhaps not for le xcp-ng so commenting out for nao
+ # - sudo systemctl stop ssh
+  local: en_US
+  keyboard:
+    layout: en
+    variants: us
+  network:
+    network:
+      version: 2
+      ethernets:
+      #Maybe I could add the "hey only eth0 for my ISOs(may need to live edit the grub as a part of boot commands), but for now as a generic placehodler"
+        eth0:
+          dhcp4: true
+          nameservers:
+            addresses:
+            - 192.168.1.1
+            search:
+            - company.com
+  apt:
+    primary:
+      - arches: [amd64]
+        uri: https://webserver.company.com/ubuntu
+    security:
+      - arches: [amd64]
+        uri: https://webserver.company.com/ubuntu
+    preserve_sources_list: true #maybe turn false as they may ask during updates
+    sources_list:
+      deb https://webserver.company.com/ubuntu jammy main restricted
+      deb https://webserver.company.com/ubuntu jammy-updates main restricted
+      deb https://webserver.company.com/ubuntu jammy universe
+      deb https://webserver.company.com/ubuntu jammy-updates universe
+      deb https://webserver.company.com/ubuntu jammy multiverse
+      deb https://webserver.company.com/ubuntu jammy-updates multiverse
+      deb https://webserver.company.com/ubuntu jammy-backports main restricted universe multiverse
+      deb https://webserver.company.com/ubuntu jammy- security main restricted
+      deb https://webserver.company.com/ubuntu jammy-security universe
+      deb https://webserver.company.com/ubuntu jammy-security multiverse
+    #This setting allows ya to use self signed certs 
+    conf: |
+      APT {
+        GET{
+            Aquire::https::webserver.company.com::Verify-Peer "false";
+            Aquire::https::webserver.company.com::Verify-Host "false";
+        };
+      };
+  storage:
+    layout:
+      name: direct
+  identify:
+    hostname: ubunt-2204-template
+    username: vagrant
+    password: '$6$wQQZzyZqVmQQnStP$xT3dFmrNbBrt5TtcadxXnAMZj9IZSbmH.QjkDFm1m7kaMUrHHlJKMb9NYscORlvv26czf73NKwm4mxDZXqHQJ0'
+  ssh:
+    install-server: yes
+    allow-pw: yes
+  late-commands:
+    - sed -i -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/g' /target/etc/ssh/sshd_config
+    - sudo echo "Aquire::https::webserver.company.com::Verify-Peer "false";'' >> /target/etc/apt/apt.conf.d/10-custom-mirror.conf
+    - sudo echo "Aquire::https::webserver.company.com::Verify-Host "false";'' >> /target/etc/apt/apt.conf.d/10-custom-mirror.conf
+    
+  user-data:
+    runcmd:
+      - [apt-get, updates]
+      - [sh, -c, "sudo apt install -y ansible"]
+      - [sh, -c, "sudo apt install -y "xe-guest-utilities cloud-guest-utils openssh-server net-tools vim ifupdown zip unzip gnupg2 software-properties-common apt-transport-https ca-certificates lsb-release python3-pip"]
