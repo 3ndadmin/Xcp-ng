@@ -1,0 +1,60 @@
+---
+
+- name: "Doing an xcp-ngydoo"
+  hosts: 'xcp-ng'
+  become: true
+  vars:
+    required_vlan: '2032'
+    required_net: 'test_dev'
+    required_pif: 'eth0'
+  vars_files:
+  roles:
+  tasks:
+    - name: "Checking if {{ required_net }} Label exists"
+      ansible.builtin.shell: "xe network-list name-label={{ required_net }}"
+      register: required_net_check
+
+    - name: "Info dumpin"
+      ansible.builtin.debug: 
+        var: required_net_check
+
+    - name: "Create {{ required_net }} Label & register uuid"
+      ansible.builtin.shell: "xe network-create name-label={{ required_net }}"
+      register: required_net_uuid
+      when: required_net_check.stdout | length == 0
+
+    - name: "Info dumpin"
+      ansible.builtin.debug: 
+        var: required_net_uuid
+
+    - name: "Gathering {{ required_pif }} uuid" 
+      ansible.builtin.shell: "xe pif-list device={{ required_pif }} VLAN=-1 | grep uuid | head -n 1 | awk -F: '{print $2}'| sed 's_ __'"
+      register: required_pif_uuid
+      tags: pif_info
+
+    - name: "Making sure the pif uuid was gathered correctly"
+      ansible.builtin.debug: 
+        var: required_pif_uuid.stdout
+      tags: pif_info
+
+    - name: "Checking to see if vlan exists"
+      ansible.builtin.shell: "xe vlan-list tag={{ required_vlan }}"
+      register: required_vlan_exist
+      tags: vlan_vars
+
+    - name: "Info dumpin"
+      ansible.builtin.debug: 
+        var: required_vlan_exist
+      tags:  vlan_vars
+
+    - name: "Creating {{ required_vlan }}"
+      ansible.builtin.shell: "xe vlan-create pif-uuid={{ required_pif_uuid.stdout }} vlan={{ required_vlan }} network-uuid={{ required_net_uuid.stdout }}"
+      register: required_vlan_create_info
+      tags: vlan_create  
+
+    - name: "Info dumpin"
+      ansible.builtin.debug: 
+        var: required_vlan_create_info
+      tags:  vlan_create
+
+...
